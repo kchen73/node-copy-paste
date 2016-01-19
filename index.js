@@ -1,22 +1,34 @@
+/** Module imported to provide forking and spawning capabilities */
 var child_process = require("child_process");
 var spawn = child_process.spawn;
+/** Module imported to provide utility functions */
 var util = require("util");
 
+/** 
+ * @returns null
+ * MORE COMMENTS NEEDED
+ * IF/ELSE COMMENT W/ RETURNS NEEDED
+ */
 var execSync = (function() {
-	if(child_process.execSync) { // Use native execSync if avaiable
-		return function(cmd) { return child_process.execSync(cmd); };
+	if(child_process.execSync) { // Use native execSync if available
+		/** @returns  */
+        return function(cmd) { return child_process.execSync(cmd); };
 	} else {
 		try { // Try using fallback package if available
+            /** Module imported to provide synchronous execution with status code support */
 			var execSync = require("sync-exec");
 			return function(cmd) { return execSync(cmd).stdout; };
 		} catch(e) {}
 	}
-
 	return null;
 })();
 
 var config;
 
+/**  
+ * Determines which platform is prevalent.
+ * Throws error if platform is unknown.
+ */
 switch(process.platform) {
 	case "darwin":
 		config = require("./platform/darwin");
@@ -34,8 +46,15 @@ switch(process.platform) {
 		throw new Error("Unknown platform: '" + process.platform + "'.  Send this error to xavi.rmz@gmail.com.");
 }
 
+/** COMMENT NEEDED */
 var noop = function() {};
 
+/**
+ * Copies text to clipboard
+ * @param text - data that will be copied to clipboard
+ * @param callback
+ * @return text - data that is copied to clipboard
+ */
 exports.copy = function(text, callback) {
 	var child = spawn(config.copy.command, config.copy.args);
 
@@ -71,6 +90,10 @@ exports.copy = function(text, callback) {
 };
 
 var pasteCommand = [ config.paste.command ].concat(config.paste.args).join(" ");
+/** 
+ * Pastes text from clipboard
+ * @param callback
+ */
 exports.paste = function(callback) {
 	if(execSync && !callback) { return config.decode(execSync(pasteCommand)); }
 	else if(callback) {
