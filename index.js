@@ -10,13 +10,13 @@ var util = require("util");
  */
 var execSync = (function() {
     if(child_process.execSync) { 
-        /** @returns TBD */
+        /** @returns execSync - synchronous programming */
         return function(cmd) { return child_process.execSync(cmd); };
 	} else {
 		try { // Try using fallback package if available
             /** Module imported to provide synchronous execution with status code support */
 			var execSync = require("sync-exec");
-            /** @returns TBD */
+            /** @returns execSync - output data */
 			return function(cmd) { return execSync(cmd).stdout; };
 		} catch(e) {}
 	}
@@ -46,9 +46,7 @@ switch(process.platform) {
 		throw new Error("Unknown platform: '" + process.platform + "'.  Send this error to xavi.rmz@gmail.com.");
 }
 
-/**
- * no operation (do nothing) function
- */
+/** no operation (do nothing) function */
 var noop = function() {};
 
 /**
@@ -65,23 +63,15 @@ exports.copy = function(text, callback) {
 
 	var err = [];
     
-	/**
-     * COMMENT NEEDED HERE
-     */
+	/** Do nothing on error */
     child.stdin.on("error", function (err) { done(err); });
 	child
-        /**
-         * COMMENT NEEDED HERE
-         */
+        /** Calls object done on exit */
 		.on("exit", function() { done(null, text); })
-        /**
-         * COMMENT NEEDED HERE
-         */
+        /** Do nothing on error */
 		.on("error", function(err) { done(err); })
 		.stderr
-            /**
-             * Data is pushed to the err array
-             */
+            /** Data is pushed to the err array */
 			.on("data", function(chunk) { err.push(chunk); })
             /**
              * Tests whether there is data to be copied to clipboard
@@ -92,7 +82,7 @@ exports.copy = function(text, callback) {
 				done(new Error(config.decode(err)));
 			})
 	;
-    /** Reads in text if work done on text is finished */
+    /** Reads in text if text is available */
 	if(text.pipe) { text.pipe(child.stdin); }
 	else {
 		var output, type = Object.prototype.toString.call(text);
@@ -109,11 +99,11 @@ exports.copy = function(text, callback) {
 	return text;
 };
 
-/** Chains the saved data located in the clipboard */
+/** Chains/concatenates the saved data from the clipboard */
 var pasteCommand = [ config.paste.command ].concat(config.paste.args).join(" ");
 
 /** 
- * Pastes text from clipboard
+ * This function pastes text from computer clipboard
  * @param callback
  */
 exports.paste = function(callback) {
@@ -128,24 +118,16 @@ exports.paste = function(callback) {
 
 		var data = [], err = [];
         
-        /**
-         * COMMENT NEEDED HERE
-         */
+        /** Do nothing on error */
 		child.on("error", function(err) { done(err); });
 		child.stdout
-			/**
-             * Data is pushed into the data array
-             */
+			/** Pushes data into data array */
             .on("data", function(chunk) { data.push(chunk); })
-            /**
-             * Data is decoded
-             */
+            /** Decodes data */
 			.on("end", function() { done(null, config.decode(data)); })
 		;
 		child.stderr
-            /**
-             * Data is pushed into the err array
-             */
+            /** Data is pushed into the err array */
 			.on("data", function(chunk) { err.push(chunk); })
 			/**
              * Tests whether clipboard contains data or not
