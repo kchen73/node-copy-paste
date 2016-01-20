@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: index.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: index.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/** Module imported to provide forking and spawning capabilities */
+var child_process = require("child_process");
+var spawn = child_process.spawn;
+/** Module imported to provide utility functions */
+var util = require("util");
+
+/** 
+ * Loops to check if native execSync is available
+ * @returns null
+ */
+var execSync = (function() {
+    if(child_process.execSync) { 
+        /** @returns execSync - synchronous programming */
+        return function(cmd) { return child_process.execSync(cmd); };
+	} else {
+		try { // Try using fallback package if available
+            /** Module imported to provide synchronous execution with status code support */
+			var execSync = require("sync-exec");
+            /** @returns execSync - output data */
+			return function(cmd) { return execSync(cmd).stdout; };
+		} catch(e) {}
+	}
+	return null;
+})();
+
+var config;
+
+/**  
+ * Determines which platform is used
+ * Throws error if platform is unknown to module
+ */
+switch(process.platform) {
+	case "darwin":
+		config = require("./platform/darwin");
+		break;
+	case "win32":
+		config = require("./platform/win32");
+		break;
+	case "linux":
+		config = require("./platform/linux");
+		break;
+	case "openbsd":
+		config = require("./platform/openbsd");
+		break;
+	default:
+		throw new Error("Unknown platform: '" + process.platform + "'.  Send this error to xavi.rmz@gmail.com.");
+}
+
+/** no operation (do nothing) function */
+var noop = function() {};
+
+/**
+ * Copies text to clipboard
+ * @param text - data that will be copied to clipboard
+ * @param callback
+ * @return text - data that is copied to clipboard
+ */
+exports.copy = function(text, callback) {
+	var child = spawn(config.copy.command, config.copy.args);
+    
+    /** Copy data to clipboard if callback exists, otherwise do nothing */
+	var done = (callback ? function() { callback.apply(this, arguments); done = noop; } : noop);
+
+	var err = [];
+    
+	/** Do nothing on error */
+    child.stdin.on("error", function (err) { done(err); });
+	child
+        /** Calls object done on exit */
+		.on("exit", function() { done(null, text); })
+        /** Do nothing on error */
+		.on("error", function(err) { done(err); })
+		.stderr
+            /** Data is pushed to the err array */
+			.on("data", function(chunk) { err.push(chunk); })
+            /**
+             * Tests whether there is data to be copied to clipboard
+             * @returns 'nothing'
+             */
+			.on("end", function() {
+				if(err.length === 0) { return; }
+				done(new Error(config.decode(err)));
+			})
+	;
+    /** Reads in text if text is available */
+	if(text.pipe) { text.pipe(child.stdin); }
+	else {
+		var output, type = Object.prototype.toString.call(text);
+        
+        /** Determines the data type that is copied and converts data into text format */
+		if(type === "[object String]") { output = text; }
+		else if(type === "[object Object]") { output = util.inspect(text, { depth: null }); }
+		else if(type === "[object Array]") { output = util.inspect(text, { depth: null }); }
+		else { output = text.toString(); }
+
+		child.stdin.end(config.encode(output));
+	}
+
+	return text;
+};
+
+/** Chains/concatenates the saved data from the clipboard */
+var pasteCommand = [ config.paste.command ].concat(config.paste.args).join(" ");
+
+/** 
+ * This function pastes text from computer clipboard
+ * @param callback
+ */
+exports.paste = function(callback) {
+	/** Pastes text from second parameter of callback function if callback exists */
+    /** Throws error if callback does not exist and execSync is not supported */
+    if(execSync &amp;&amp; !callback) { return config.decode(execSync(pasteCommand)); }
+	else if(callback) {
+		var child = spawn(config.paste.command, config.paste.args);
+
+		/** Paste text from clipboard and perform no operation if callback function exists */
+        var done = callback &amp;&amp; function() { callback.apply(this, arguments); done = noop; };
+
+		var data = [], err = [];
+        
+        /** Do nothing on error */
+		child.on("error", function(err) { done(err); });
+		child.stdout
+			/** Pushes data into data array */
+            .on("data", function(chunk) { data.push(chunk); })
+            /** Decodes data */
+			.on("end", function() { done(null, config.decode(data)); })
+		;
+		child.stderr
+            /** Data is pushed into the err array */
+			.on("data", function(chunk) { err.push(chunk); })
+			/**
+             * Tests whether clipboard contains data or not
+             * @returns 'nothing'
+             */
+            .on("end", function() {
+				if(err.length === 0) { return; }
+
+				done(new Error(config.decode(err)));
+			})
+		;
+	} else {
+		throw new Error("A synchronous version of paste is not supported on this platform.");
+	}
+};
+
+/**
+ * If silent is called, throw deprecated error
+ */
+exports.silent = function() {
+	throw new Error("DEPRECATED: copy-paste is now always silent.");
+};
+
+/**
+ * If noConflict is called, throw deprecated error
+ */
+exports.noConflict = function() {
+	throw new Error("DEPRECATED: copy-paste no longer adds global variables by default.");
+};
+
+/**
+ * If global is called and chained to require("copy-paste"), copy and paste are added to global namespace
+ * @returns exports - public functions
+ */
+exports.global = function() {
+	GLOBAL.copy = exports.copy;
+	GLOBAL.paste = exports.paste;
+
+	return exports;
+};
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#child_process">child_process</a></li><li><a href="global.html#copy">copy</a></li><li><a href="global.html#execSync">execSync</a></li><li><a href="global.html#global">global</a></li><li><a href="global.html#global#noConflict">noConflict</a></li><li><a href="global.html#global#noop">noop</a></li><li><a href="global.html#global#paste">paste</a></li><li><a href="global.html#global#pasteCommand">pasteCommand</a></li><li><a href="global.html#global#silent">silent</a></li><li><a href="global.html#global#util">util</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Tue Jan 19 2016 22:11:22 GMT-0800 (Pacific Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
